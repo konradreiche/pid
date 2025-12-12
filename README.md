@@ -39,4 +39,4 @@ for i := range 5 {
 
 ## Acknowledgements
 
-A special thanks to Donovan Baarda for discussions and insights from our collaboration on the [DLFU Cache](https://minkirri.apana.org.au/wiki/DecayingLFUCacheExpiry), including implementation details that helped clarify feedback and control principles used in this library, as well as his perspectives on why [thresholds and limits are problematic](https://minkirri.apana.org.au/wiki/AustralianTaxationSystem).
+A special thanks to Donovan Baarda for discussions and insights from our collaboration on the [DLFU Cache](https://minkirri.apana.org.au/wiki/DecayingLFUCacheExpiry), including implementation details that helped clarify feedback and control principles used in this library, as well as his perspectives on why [thresholds and limits are problematic](https://minkirri.apana.org.au/wiki/ThresholdsAndLimitsAreBad).
