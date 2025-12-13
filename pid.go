@@ -1,5 +1,5 @@
 // Package pid provides a configurable PID controller for feedback-based
-// corol systems.
+// control systems.
 package pid
 
 import (
@@ -18,7 +18,7 @@ type Controller struct {
 	// reduces the rise time but can cause overshoot and oscillations.
 	proportionalGain float64
 	// Integral gain (𝐾𝑖) addresses accumulated past errors (offsets), higher integralGain
-	// eliminates steady-state error but may cause instabiliy or slow response.
+	// eliminates steady-state error but may cause instability or slow response.
 	integralGain float64
 	// Derivative gain (𝐾𝑑) predicts future error based on its rate of change, higher
 	// derivativeGain reduces overshoot and oscillations but can amplify noise.
