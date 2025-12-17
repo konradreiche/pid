@@ -17,7 +17,7 @@ func ExampleNew() {
 	}
 
 	fmt.Printf("%#v\n", controller)
-	// Output: &pid.Controller{proportionalGain:2, integralGain:2, derivativeGain:0.5, prevControlError:0, integral:0, derivative:0, outputLimit:pid.limit{lower:-Inf, upper:+Inf}, integralLimit:pid.limit{lower:-Inf, upper:+Inf}, lowPassFilterError:0.00390625, lowPassFilterDerivative:0.03125, trapezoidalIntegral:false}
+	// Output: &pid.Controller{proportionalGain:2, integralGain:2, derivativeGain:0.5, prevControlError:0, integral:0, derivative:0, outputLimit:pid.limit{lower:-Inf, upper:+Inf}, integralLimit:pid.limit{lower:-Inf, upper:+Inf}, lowPassFilterError:0.00390625, lowPassFilterDerivative:0.03125, trapezoidalIntegral:false, metrics:(*pid.metrics)(nil)}
 }
 
 func ExampleController_Update() {

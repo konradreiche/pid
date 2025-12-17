@@ -5,6 +5,8 @@ package pid
 import (
 	"math"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Controller implements a PID controller for feedback-driven systems, commonly
@@ -36,6 +38,8 @@ type Controller struct {
 	lowPassFilterError      float64
 	lowPassFilterDerivative float64
 	trapezoidalIntegral     bool
+
+	metrics *metrics
 }
 
 // New constructs a [*Controller] configured by the provided options.
@@ -68,14 +72,23 @@ func New(opts ...Option) (*Controller, error) {
 		trapezoidalIntegral:     cfg.trapezoidalIntegral,
 		lowPassFilterError:      cfg.lowPassFilterError,
 		lowPassFilterDerivative: cfg.lowPassFilterDerivative,
+		metrics:                 cfg.metrics,
 	}, nil
 }
 
 // Update computes and returns the next control signal for the given target and
 // current measurement over the provided time step. Call Update once per
 // control loop iteration, passing the time elapsed since the previous call.
-func (c *Controller) Update(target, current float64, delta time.Duration) float64 {
+func (c *Controller) Update(target, current float64, delta time.Duration) (controlSignal float64) {
 	step := float64(delta.Seconds())
+
+	defer func() {
+		if c.metrics == nil {
+			return
+		}
+		c.metrics.controlSignal.With(c.metrics.labels).Set(controlSignal)
+	}()
+	c.collectMetrics(target, current)
 
 	// Calculate the error value as the difference between the target and current
 	// value. This time-dependent error drives the PID terms (P, I, and D).
@@ -116,6 +129,15 @@ func (c *Controller) updateDerivative(controlError, step float64) float64 {
 	return derivative
 }
 
+func (c *Controller) collectMetrics(target, current float64) {
+	if c.metrics == nil {
+		return
+	}
+	c.metrics.updatesTotal.With(c.metrics.labels).Inc()
+	c.metrics.target.With(c.metrics.labels).Set(target)
+	c.metrics.current.With(c.metrics.labels).Set(current)
+}
+
 type options struct {
 	proportionalGain        float64
 	integralGain            float64
@@ -124,6 +146,7 @@ type options struct {
 	trapezoidalIntegral     bool
 	lowPassFilterError      float64
 	lowPassFilterDerivative float64
+	metrics                 *metrics
 }
 
 // Option is a functional option for flexible and extensible configuration of
@@ -210,6 +233,21 @@ func WithOutputLimit(lower, upper float64) Option {
 func WithTrapezoidalIntegral(enabled bool) Option {
 	return func(o *options) error {
 		o.trapezoidalIntegral = enabled
+		return nil
+	}
+}
+
+// WithPrometheusMetrics enables Prometheus instrumentation for the controller.
+// Metrics are registered with the provided registerer and use the given name
+// as a constant label value to differentiate between multiple Controller
+// instances.
+func WithPrometheusMetrics(name string, registerer prometheus.Registerer) Option {
+	return func(o *options) error {
+		m, err := newMetrics(name, registerer)
+		if err != nil {
+			return err
+		}
+		o.metrics = m
 		return nil
 	}
 }
