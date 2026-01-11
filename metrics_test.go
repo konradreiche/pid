@@ -70,6 +70,24 @@ func TestMetrics_Update(t *testing.T) {
 	}
 }
 
+func TestReusePrometheusRegistry(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	a, err := New(WithPrometheusMetrics("a", registry))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := New(WithPrometheusMetrics("b", registry))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a.Update(7, 4, 1*time.Second)
+	b.Update(2, 3, 1*time.Second)
+
+	checkLabelValue(t, registry, "pid_control_signal", "name", "a")
+	checkLabelValue(t, registry, "pid_control_signal", "name", "b")
+}
+
 func checkLabelValue(
 	tb testing.TB,
 	registry *prometheus.Registry,
