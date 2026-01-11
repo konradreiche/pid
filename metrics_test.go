@@ -70,6 +70,16 @@ func TestMetrics_Update(t *testing.T) {
 	}
 }
 
+func TestMetricDuplication(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	if _, err := New(WithPrometheusMetrics("a", registry)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(WithPrometheusMetrics("b", registry)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func checkLabelValue(
 	tb testing.TB,
 	registry *prometheus.Registry,
