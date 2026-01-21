@@ -8,7 +8,7 @@ This demo uses an oven as a concrete, real-world example to make the purpose of 
 podman compose up
 ```
 
-This starts Prometheus and Grafana with the provided configuration and dashboard provisioning. Grafana is available at http://localhost:3000.
+This starts Prometheus and Grafana with the provided configuration and dashboard provisioning. Grafana is available at http://localhost:3000/d/adp6sw7/pid-controller-oven-demo.
 
 ## Run the Simulation
 

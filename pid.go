@@ -3,6 +3,7 @@
 package pid
 
 import (
+	"maps"
 	"math"
 	"time"
 
@@ -63,7 +64,7 @@ func New(opts ...Option) (*Controller, error) {
 		)
 	}
 
-	return &Controller{
+	controller := &Controller{
 		proportionalGain:        cfg.proportionalGain,
 		integralGain:            cfg.integralGain,
 		derivativeGain:          cfg.derivativeGain,
@@ -73,7 +74,10 @@ func New(opts ...Option) (*Controller, error) {
 		lowPassFilterError:      cfg.lowPassFilterError,
 		lowPassFilterDerivative: cfg.lowPassFilterDerivative,
 		metrics:                 cfg.metrics,
-	}, nil
+	}
+	controller.updateGainMetrics()
+
+	return controller, nil
 }
 
 // Update computes and returns the next control signal for the given target and
@@ -86,9 +90,9 @@ func (c *Controller) Update(target, current float64, delta time.Duration) (contr
 		if c.metrics == nil {
 			return
 		}
-		c.metrics.controlSignal.With(c.metrics.labels).Set(controlSignal)
+		c.metrics.controlSignal.With(c.metrics.baseLabels).Set(controlSignal)
 	}()
-	c.collectMetrics(target, current)
+	c.updateStateMetrics(target, current)
 
 	// Calculate the error value as the difference between the target and current
 	// value. This time-dependent error drives the PID terms (P, I, and D).
@@ -105,7 +109,12 @@ func (c *Controller) Update(target, current float64, delta time.Duration) (contr
 	// integral and derivative, both depend on the prior error value.
 	c.prevControlError = controlError
 
-	output := c.proportionalGain*controlError + c.integralGain*c.integral + c.derivativeGain*c.derivative
+	pTerm := c.proportionalGain * controlError
+	iTerm := c.integralGain * c.integral
+	dTerm := c.derivativeGain * c.derivative
+	c.updateTermMetrics(pTerm, iTerm, dTerm)
+
+	output := pTerm + iTerm + dTerm
 
 	// Limits ensure that the controller operates within safe bounds and to
 	// prevent integral windup (overshoot, slow recovery, oscillation).
@@ -129,13 +138,38 @@ func (c *Controller) updateDerivative(controlError, step float64) float64 {
 	return derivative
 }
 
-func (c *Controller) collectMetrics(target, current float64) {
+func (c *Controller) updateStateMetrics(target, current float64) {
 	if c.metrics == nil {
 		return
 	}
-	c.metrics.updatesTotal.With(c.metrics.labels).Inc()
-	c.metrics.target.With(c.metrics.labels).Set(target)
-	c.metrics.current.With(c.metrics.labels).Set(current)
+	c.metrics.updatesTotal.With(c.metrics.baseLabels).Inc()
+	c.metrics.target.With(c.metrics.baseLabels).Set(target)
+	c.metrics.current.With(c.metrics.baseLabels).Set(current)
+}
+
+func (c *Controller) updateGainMetrics() {
+	if c.metrics == nil {
+		return
+	}
+	c.metrics.gain.With(c.termLabels("proportional_gain")).Set(c.proportionalGain)
+	c.metrics.gain.With(c.termLabels("integral_gain")).Set(c.integralGain)
+	c.metrics.gain.With(c.termLabels("derivative_gain")).Set(c.derivativeGain)
+}
+
+func (c *Controller) updateTermMetrics(p, i, d float64) {
+	if c.metrics == nil {
+		return
+	}
+	c.metrics.term.With(c.termLabels("proportional")).Set(p)
+	c.metrics.term.With(c.termLabels("integral")).Set(i)
+	c.metrics.term.With(c.termLabels("derivative")).Set(d)
+}
+
+func (c *Controller) termLabels(term string) prometheus.Labels {
+	labels := make(prometheus.Labels, len(c.metrics.baseLabels)+1)
+	maps.Copy(labels, c.metrics.baseLabels)
+	labels[termLabel] = term
+	return labels
 }
 
 type options struct {
