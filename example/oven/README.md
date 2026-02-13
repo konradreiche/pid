@@ -20,6 +20,17 @@ go run main.go
 
 This runs both controllers against the same oven model and exposes metrics at http://localhost:2112/metrics.
 
+
+### Grafana Dashboard
+
+The Grafana dashboard visualizes the oven simulation and controller behavior using the exported Prometheus metrics:
+
+http://localhost:3000/d/adp6sw7/pid-controller-oven-demo
+
+It shows the full control loop, including oven temperature, controller error, control signal, PID gains, and the proportional, integral, and derivative term contributions. Multiple controller configurations run against the same oven model how different tuning choices affect stability and response.
+
+---
+
 ## Stopping and Resetting
 
 To fully reset Grafana state and provisioning:
