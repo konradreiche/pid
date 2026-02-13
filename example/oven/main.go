@@ -48,19 +48,19 @@ func main() {
 
 	runOnOffController()
 
-	runPIDController("ultimate_gain",
-		pid.WithIntegralGain(0.0),
-		pid.WithDerivativeGain(0.0),
-		pid.WithProportionalGain(2.0),
-		pid.WithOutputLimit(0, 20),
-	)
-
 	runPIDController("p_only",
 		pid.WithProportionalGain(1.0),
 		pid.WithIntegralGain(0.0),
 		pid.WithDerivativeGain(0.0),
 		pid.WithTrapezoidalIntegral(true),
 		pid.WithOutputLimit(0.0, 20.0),
+	)
+
+	runPIDController("ultimate_gain",
+		pid.WithIntegralGain(0.0),
+		pid.WithDerivativeGain(0.0),
+		pid.WithProportionalGain(2.0),
+		pid.WithOutputLimit(0, 20),
 	)
 
 	runPIDController("zn_pid",
