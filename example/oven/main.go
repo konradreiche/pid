@@ -34,8 +34,10 @@ var (
 
 // This demo runs two controllers against the same simplified oven model:
 
-// 1. On-Off Controller (Thermostat with Deadband)
-// 2. PID Controller (Tuned via Ziegler-Nichols)
+// 1. On-Off Controller (thermostat with deadband)
+// 2. PID Controller (proportional only)
+// 3. PID Controller at ultimate gain (sustained oscillation)
+// 4. PID Controller tuned using the Ziegler–Nichols method
 //
 // The goal is not physical accuracy, but to produce repeatable dynamics (heat
 // input, proportional heat loss, and a disturbance event) that make controller
@@ -45,7 +47,27 @@ func main() {
 	log.Println("Metrics available at http://localhost:2112/metrics (Prometheus on :9090)")
 
 	runOnOffController()
-	runPIDController()
+
+	runPIDController("p_only",
+		pid.WithProportionalGain(1.0),
+		pid.WithIntegralGain(0.0),
+		pid.WithDerivativeGain(0.0),
+		pid.WithTrapezoidalIntegral(true),
+		pid.WithOutputLimit(0.0, 20.0),
+	)
+
+	runPIDController("ultimate_gain",
+		pid.WithIntegralGain(0.0),
+		pid.WithDerivativeGain(0.0),
+		pid.WithProportionalGain(2.0),
+		pid.WithOutputLimit(0, 20),
+	)
+
+	runPIDController("zn_pid",
+		pid.WithZieglerNicholsMethod(1.7, 2),
+		pid.WithTrapezoidalIntegral(true),
+		pid.WithOutputLimit(0.0, 20.0),
+	)
 
 	if err := http.ListenAndServe(":2112", nil); err != nil {
 		log.Fatal(err)
@@ -57,23 +79,11 @@ func runOnOffController() {
 	go onOffControllerSimulation.run(newOnOffController())
 }
 
-func runPIDController() {
-	pidSimulation := newSimulation("pid")
-
-	// Example configuration that will produce oscillations:
-	//	pid, err := pid.New(
-	//		pid.WithIntegralGain(0.0),
-	//		pid.WithDerivativeGain(0.0),
-	//		pid.WithProportionalGain(2.0),
-	//		pid.WithOutputLimit(0, 20),
-	//		pid.WithPrometheusMetrics("demo", prometheus.DefaultRegisterer),
-	//	)
-
+func runPIDController(name string, opts ...pid.Option) {
+	pidSimulation := newSimulation(name)
 	pid, err := pid.New(
-		pid.WithZieglerNicholsMethod(1.7, 2),
-		pid.WithTrapezoidalIntegral(true),
-		pid.WithOutputLimit(0.0, 20.0),
-		pid.WithPrometheusMetrics("demo", prometheus.DefaultRegisterer),
+		pid.WithOptions(opts...),
+		pid.WithPrometheusMetrics(name, prometheus.DefaultRegisterer),
 	)
 	if err != nil {
 		log.Fatal(err)

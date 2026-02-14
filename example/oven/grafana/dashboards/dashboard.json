@@ -134,7 +134,7 @@
             "uid": "ff7wbht2fwyyof"
           },
           "editorMode": "code",
-          "expr": "sum by (controller) (oven_temperature)",
+          "expr": "sum by (controller) (oven_temperature{\n    controller=~\"$controller\",\n})",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -233,7 +233,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (controller) (oven_power_ratio)",
+          "expr": "sum by (controller) (oven_power_ratio{\n    controller=~\"$controller\",\n})",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -252,7 +252,8 @@
       },
       "id": 6,
       "panels": [],
-      "title": "PID Controller",
+      "repeat": "name",
+      "title": "PID: $name",
       "type": "row"
     },
     {
@@ -345,16 +346,11 @@
       "pluginVersion": "12.3.1",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ff7wbht2fwyyof"
-          },
           "editorMode": "code",
-          "expr": "max(pid_target) - max(pid_current)",
-          "hide": false,
+          "expr": "pid_current{\n  name=\"$name\",\n} - pid_target{\n  name=\"$name\",\n}",
           "legendFormat": "Error = Target - Current",
           "range": true,
-          "refId": "B"
+          "refId": "A"
         }
       ],
       "title": "Error = Target - Current",
@@ -447,7 +443,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "pid_control_signal",
+          "expr": "pid_control_signal{\n  name=\"$name\",\n}",
           "legendFormat": "Control Signal",
           "range": true,
           "refId": "A"
@@ -523,15 +519,11 @@
         "x": 0,
         "y": 18
       },
-      "id": 7,
+      "id": 8,
       "interval": "1s",
       "options": {
         "legend": {
-          "calcs": [
-            "min",
-            "mean",
-            "max"
-          ],
+          "calcs": [],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -546,8 +538,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max by (term) (pid_gain)",
-          "legendFormat": "__auto",
+          "expr": "pid_gain{name=\"$name\"}",
+          "legendFormat": "{{term}}",
           "range": true,
           "refId": "A"
         }
@@ -622,15 +614,11 @@
         "x": 12,
         "y": 18
       },
-      "id": 8,
+      "id": 7,
       "interval": "1s",
       "options": {
         "legend": {
-          "calcs": [
-            "min",
-            "mean",
-            "max"
-          ],
+          "calcs": [],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -645,8 +633,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max by (term) (pid_term)",
-          "legendFormat": "__auto",
+          "expr": "pid_term{name=\"$name\"}",
+          "legendFormat": "{{term}}",
           "range": true,
           "refId": "A"
         }
@@ -660,7 +648,61 @@
   "schemaVersion": 42,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "definition": "label_values(oven_temperature,controller)",
+        "includeAll": true,
+        "label": "Demo",
+        "multi": true,
+        "name": "controller",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(oven_temperature,controller)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": [
+            "zn_pid",
+            "on-off",
+            "ultimate_gain",
+            "p_only"
+          ],
+          "value": [
+            "zn_pid",
+            "on-off",
+            "ultimate_gain",
+            "p_only"
+          ]
+        },
+        "definition": "label_values(pid_current,name)",
+        "label": "PID",
+        "multi": true,
+        "name": "name",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(pid_current,name)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-30s",
@@ -670,5 +712,5 @@
   "timezone": "browser",
   "title": "PID Controller - Oven Demo",
   "uid": "adp6sw7",
-  "version": 4
+  "version": 1
 }
