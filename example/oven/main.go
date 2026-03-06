@@ -232,8 +232,7 @@ func (s *simulation) writeToCSVFile(step int) {
 
 func createCSV(name string) *os.File {
 	outputDir := "output"
-	err := os.MkdirAll(outputDir, 0755)
-	if err != nil {
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		log.Fatal(err)
 	}
 	csvFile, err := os.Create(filepath.Join(outputDir, name+".csv"))
