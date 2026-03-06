@@ -192,9 +192,9 @@ func (s *simulation) run(controller controller) {
 
 		// Disturbance: a one-time step drop simulates opening the door. This is useful
 		// to compare how controllers recover from an exogenous shock.
-		//		if i == 43 {
-		//			s.oven.currentTemperature -= 60
-		//		}
+		if i == 43 {
+			s.oven.currentTemperature -= 60
+		}
 
 		if i%10 == 0 {
 			log.Printf(
