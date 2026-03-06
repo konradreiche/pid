@@ -1,8 +1,12 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/konradreiche/pid"
@@ -12,7 +16,7 @@ import (
 )
 
 const (
-	targetTemperature        = 350.0
+	targetTemperature        = 300.0
 	ambientTemperature       = 70
 	maxHeaterPower           = 20.0
 	temperatureLossPerSecond = 0.01
@@ -32,6 +36,8 @@ var (
 	}, []string{"controller"})
 )
 
+var csv = flag.Bool("csv", false, "write simulation data to CSV files for each controller")
+
 // This demo runs two controllers against the same simplified oven model:
 
 // 1. On-Off Controller (thermostat with deadband)
@@ -43,6 +49,8 @@ var (
 // input, proportional heat loss, and a disturbance event) that make controller
 // behavior easy to visualize and observe via Prometheus metrics.
 func main() {
+	flag.Parse()
+
 	http.Handle("/metrics", promhttp.Handler())
 	log.Println("Metrics available at http://localhost:2112/metrics (Prometheus on :9090)")
 
@@ -57,9 +65,9 @@ func main() {
 	)
 
 	runPIDController("ultimate_gain",
+		pid.WithProportionalGain(2.0),
 		pid.WithIntegralGain(0.0),
 		pid.WithDerivativeGain(0.0),
-		pid.WithProportionalGain(2.0),
 		pid.WithOutputLimit(0, 20),
 	)
 
@@ -103,6 +111,9 @@ func newSimulation(name string) *simulation {
 		oven:     oven,
 		timeStep: 1 * time.Second,
 	}
+	if *csv {
+		simulation.csvFile = createCSV(name)
+	}
 	return simulation
 }
 
@@ -121,7 +132,7 @@ func newOnOffController() *onOffController {
 	return &onOffController{}
 }
 
-func (o *onOffController) Update(target, current float64, delta time.Duration) float64 {
+func (c *onOffController) Update(target, current float64, delta time.Duration) float64 {
 	const deadband = 5
 	if current < target-deadband {
 		return maxHeaterPower
@@ -148,6 +159,7 @@ type simulation struct {
 	name     string
 	oven     *oven
 	timeStep time.Duration
+	csvFile  *os.File
 }
 
 func (s *simulation) run(controller controller) {
@@ -166,6 +178,7 @@ func (s *simulation) run(controller controller) {
 		// applied.
 		powerRatio := control / maxHeaterPower
 		ovenPowerRatio.WithLabelValues(s.name).Set(powerRatio)
+		s.writeToCSVFile(i)
 
 		// Heating adds temperature linearly with power.
 		if powerRatio > 0 {
@@ -179,9 +192,9 @@ func (s *simulation) run(controller controller) {
 
 		// Disturbance: a one-time step drop simulates opening the door. This is useful
 		// to compare how controllers recover from an exogenous shock.
-		if i == 43 {
-			s.oven.currentTemperature -= 60
-		}
+		//		if i == 43 {
+		//			s.oven.currentTemperature -= 60
+		//		}
 
 		if i%10 == 0 {
 			log.Printf(
@@ -198,4 +211,34 @@ func (s *simulation) run(controller controller) {
 		time.Sleep(s.timeStep)
 		i++
 	}
+}
+
+func (s *simulation) writeToCSVFile(step int) {
+	if !*csv {
+		return
+	}
+	if _, err := fmt.Fprintf(
+		s.csvFile,
+		"%d,%.2f\n",
+		step,
+		s.oven.currentTemperature,
+	); err != nil {
+		log.Fatal(err)
+	}
+	if err := s.csvFile.Sync(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func createCSV(name string) *os.File {
+	outputDir := "output"
+	err := os.MkdirAll(outputDir, 0755)
+	if err != nil {
+		log.Fatal(err)
+	}
+	csvFile, err := os.Create(filepath.Join(outputDir, name+".csv"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return csvFile
 }
