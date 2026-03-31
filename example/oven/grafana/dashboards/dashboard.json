@@ -89,11 +89,11 @@
               },
               {
                 "color": "green",
-                "value": 348
+                "value": 298
               },
               {
                 "color": "red",
-                "value": 352
+                "value": 302
               }
             ]
           },
@@ -712,5 +712,5 @@
   "timezone": "browser",
   "title": "PID Controller - Oven Demo",
   "uid": "adp6sw7",
-  "version": 1
+  "version": 8
 }

@@ -36,7 +36,10 @@ var (
 	}, []string{"controller"})
 )
 
-var csv = flag.Bool("csv", false, "write simulation data to CSV files for each controller")
+var (
+	csv     = flag.Bool("csv", false, "write simulation data to CSV files for each controller")
+	seconds = flag.Int("seconds", 120, "number of seconds to run in CSV mode")
+)
 
 // This demo runs two controllers against the same simplified oven model:
 
@@ -46,8 +49,8 @@ var csv = flag.Bool("csv", false, "write simulation data to CSV files for each c
 // 4. PID Controller tuned using the Ziegler–Nichols method
 //
 // The goal is not physical accuracy, but to produce repeatable dynamics (heat
-// input, proportional heat loss, and a disturbance event) that make controller
-// behavior easy to visualize and observe via Prometheus metrics.
+// input and proportional heat loss) that make controller behavior easy to
+// visualize and observe via Prometheus metrics.
 func main() {
 	flag.Parse()
 
@@ -60,21 +63,39 @@ func main() {
 		pid.WithProportionalGain(1.0),
 		pid.WithIntegralGain(0.0),
 		pid.WithDerivativeGain(0.0),
-		pid.WithTrapezoidalIntegral(true),
-		pid.WithOutputLimit(0.0, 20.0),
+		pid.WithOutputLimit(0.0, maxHeaterPower),
+	)
+
+	runPIDController("pi",
+		pid.WithProportionalGain(1.0),
+		pid.WithIntegralGain(3.0),
+		pid.WithDerivativeGain(0.0),
+		pid.WithOutputLimit(0.0, maxHeaterPower),
+	)
+
+	runPIDController("pid",
+		pid.WithProportionalGain(1.0),
+		pid.WithIntegralGain(3.0),
+		pid.WithDerivativeGain(0.5),
+		pid.WithOutputLimit(0.0, maxHeaterPower),
 	)
 
 	runPIDController("ultimate_gain",
-		pid.WithProportionalGain(2.0),
+		pid.WithProportionalGain(2.01),
 		pid.WithIntegralGain(0.0),
 		pid.WithDerivativeGain(0.0),
-		pid.WithOutputLimit(0, 20),
+		pid.WithOutputLimit(0, maxHeaterPower),
 	)
 
 	runPIDController("zn_pid",
-		pid.WithZieglerNicholsMethod(1.7, 2),
-		pid.WithTrapezoidalIntegral(true),
-		pid.WithOutputLimit(0.0, 20.0),
+		pid.WithZieglerNicholsMethod(2.01, 2),
+		pid.WithOutputLimit(0.0, maxHeaterPower),
+	)
+
+	runPIDController("zn_pi",
+		pid.WithZieglerNicholsMethod(2.01, 2),
+		pid.WithDerivativeGain(0.0),
+		pid.WithOutputLimit(0.0, maxHeaterPower),
 	)
 
 	if err := http.ListenAndServe(":2112", nil); err != nil {
@@ -190,12 +211,6 @@ func (s *simulation) run(controller controller) {
 			s.oven.currentTemperature -= s.oven.temperatureLossPerSecond * delta * s.timeStep.Seconds()
 		}
 
-		// Disturbance: a one-time step drop simulates opening the door. This is useful
-		// to compare how controllers recover from an exogenous shock.
-		if i == 43 {
-			s.oven.currentTemperature -= 60
-		}
-
 		if i%10 == 0 {
 			log.Printf(
 				"%-6s temperature = %5.1f°F target = %3.0f°F power = %4.2f",
@@ -208,7 +223,12 @@ func (s *simulation) run(controller controller) {
 
 		// Sleep to pace the simulation in real time so Prometheus scraping and
 		// graphs reflect progression naturally.
-		time.Sleep(s.timeStep)
+		if !*csv {
+			time.Sleep(s.timeStep)
+		}
+		if *csv && i == *seconds {
+			break
+		}
 		i++
 	}
 }
