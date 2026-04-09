@@ -39,6 +39,7 @@ type Controller struct {
 	lowPassFilterError      float64
 	lowPassFilterDerivative float64
 	trapezoidalIntegral     bool
+	antiWindupClamping      bool
 
 	metrics *metrics
 }
@@ -71,6 +72,7 @@ func New(opts ...Option) (*Controller, error) {
 		outputLimit:             cfg.outputLimit,
 		integralLimit:           integralLimit,
 		trapezoidalIntegral:     cfg.trapezoidalIntegral,
+		antiWindupClamping:      cfg.antiWindupClamping,
 		lowPassFilterError:      cfg.lowPassFilterError,
 		lowPassFilterDerivative: cfg.lowPassFilterDerivative,
 		metrics:                 cfg.metrics,
@@ -102,22 +104,31 @@ func (c *Controller) Update(target, current float64, delta time.Duration) (contr
 		controlError = (controlError*step + c.prevControlError*c.lowPassFilterError) / (c.lowPassFilterError + step)
 	}
 
-	c.integral = c.integralLimit.apply(c.updateIntegral(controlError, step))
 	c.derivative = c.updateDerivative(controlError, step)
-
-	// Defer updating the previous control error until after computing the
-	// integral and derivative, both depend on the prior error value.
-	c.prevControlError = controlError
 
 	pTerm := c.proportionalGain * controlError
 	iTerm := c.integralGain * c.integral
 	dTerm := c.derivativeGain * c.derivative
+
+	// Compute the unconstrained control signal. This is used to detect whether the
+	// controller will be saturated before applying output limits.
+	unsaturated := pTerm + iTerm + dTerm
+
+	if c.antiWindupClamping && c.windingUp(unsaturated, controlError) {
+		// Skip integration to prevent integral windup while saturated
+	} else {
+		// Defer updating the previous control error until after computing the
+		// derivative and integral: both depend on the prior error value.
+		c.integral = c.integralLimit.apply(c.updateIntegral(controlError, step))
+		iTerm = c.integralGain * c.integral
+	}
+	c.prevControlError = controlError
 	c.updateTermMetrics(pTerm, iTerm, dTerm)
 
+	// Apply actuator limits; saturation alone can cause integral windup; the
+	// clamping logic above prevents the integrator from accumulating error while
+	// saturated.
 	output := pTerm + iTerm + dTerm
-
-	// Limits ensure that the controller operates within safe bounds and to
-	// prevent integral windup (overshoot, slow recovery, oscillation).
 	return c.outputLimit.apply(output)
 }
 
@@ -136,6 +147,16 @@ func (c *Controller) updateDerivative(controlError, step float64) float64 {
 		derivative = ((controlError - c.prevControlError) + c.lowPassFilterDerivative*c.derivative) / (step + c.lowPassFilterDerivative)
 	}
 	return derivative
+}
+
+func (c *Controller) windingUp(unsaturated, controlError float64) bool {
+	if unsaturated > c.outputLimit.upper && controlError > 0 {
+		return true
+	}
+	if unsaturated < c.outputLimit.lower && controlError < 0 {
+		return true
+	}
+	return false
 }
 
 func (c *Controller) updateStateMetrics(target, current float64) {
@@ -178,6 +199,7 @@ type options struct {
 	derivativeGain          float64
 	outputLimit             limit
 	trapezoidalIntegral     bool
+	antiWindupClamping      bool
 	lowPassFilterError      float64
 	lowPassFilterDerivative float64
 	metrics                 *metrics
@@ -257,6 +279,20 @@ func WithLowPassFilterError(lowPassFilterError float64) Option {
 func WithOutputLimit(lower, upper float64) Option {
 	return func(o *options) error {
 		o.outputLimit = newLimit(lower, upper)
+		return nil
+	}
+}
+
+// WithAntiWindupClamping enables conditional integration to prevent integral
+// windup when the controller output is saturated.
+//
+// When enabled, the integrator is not updated if the unconstrained control
+// signal exceeds the output limits and the current error would drive it
+// further into saturation. This helps avoid overshoot and long recovery times
+// caused by accumulated integral error.
+func WithAntiWindupClamping(enabled bool) Option {
+	return func(o *options) error {
+		o.antiWindupClamping = enabled
 		return nil
 	}
 }

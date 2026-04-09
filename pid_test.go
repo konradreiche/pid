@@ -142,6 +142,33 @@ func TestController(t *testing.T) {
 				integralLimit:    limit{lower: math.Inf(-1), upper: math.Inf(1)},
 			},
 		},
+		{
+			name: "anti-windup-clamping-prevents-integral-growth-when-saturated",
+			opts: []Option{
+				WithProportionalGain(1.0),
+				WithIntegralGain(0.5),
+				WithDerivativeGain(0.0),
+				WithOutputLimit(-5, 5),
+				WithAntiWindupClamping(true),
+			},
+			target: 10.0,
+			inputs: []float64{0, 0, 10},
+			wantOutputs: []float64{
+				5,
+				5,
+				0,
+			},
+			wantController: &Controller{
+				proportionalGain:   1.0,
+				integralGain:       0.5,
+				prevControlError:   0,
+				integral:           0,
+				derivative:         -10,
+				outputLimit:        limit{lower: -5, upper: 5},
+				integralLimit:      limit{lower: -10, upper: 10},
+				antiWindupClamping: true,
+			},
+		},
 	}
 
 	for _, tt := range tests {
