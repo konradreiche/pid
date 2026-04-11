@@ -203,7 +203,11 @@ func WithZieglerNicholsMethod(
 
 // WithStandardForm configures the controller using the standard PID form. The
 // resulting integral and derivative gains are derived from these values.
-func WithStandardForm(proportionalGain, integralTimeConstant, derivativeTimeConstant float64) Option {
+func WithStandardForm(
+	proportionalGain float64,
+	integralTimeConstant float64,
+	derivativeTimeConstant float64,
+) Option {
 	return func(o *options) error {
 		o.proportionalGain = proportionalGain
 		o.integralGain = proportionalGain / integralTimeConstant
