@@ -98,6 +98,13 @@ func main() {
 		pid.WithOutputLimit(0.0, maxHeaterPower),
 	)
 
+	runPIDController("zn_pi_anti_windup",
+		pid.WithZieglerNicholsMethod(2.01, 2),
+		pid.WithDerivativeGain(0.0),
+		pid.WithOutputLimit(0.0, maxHeaterPower),
+		pid.WithAntiWindupClamping(true),
+	)
+
 	if err := http.ListenAndServe(":2112", nil); err != nil {
 		log.Fatal(err)
 	}
