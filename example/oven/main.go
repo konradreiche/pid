@@ -105,6 +105,13 @@ func main() {
 		pid.WithAntiWindupClamping(true),
 	)
 
+	runPIDController("zn_pi_setpoint_filter",
+		pid.WithZieglerNicholsMethod(2.01, 2),
+		pid.WithDerivativeGain(0.0),
+		pid.WithOutputLimit(0.0, maxHeaterPower),
+		pid.WithSetpointFilter(4),
+	)
+
 	if err := http.ListenAndServe(":2112", nil); err != nil {
 		log.Fatal(err)
 	}

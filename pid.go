@@ -36,6 +36,10 @@ type Controller struct {
 	outputLimit   limit
 	integralLimit limit
 
+	filteredSetpoint            float64
+	setpointFilterTimeConstant  float64
+	filteredSetpointInitialized bool
+
 	lowPassFilterError      float64
 	lowPassFilterDerivative float64
 	trapezoidalIntegral     bool
@@ -66,16 +70,17 @@ func New(opts ...Option) (*Controller, error) {
 	}
 
 	controller := &Controller{
-		proportionalGain:        cfg.proportionalGain,
-		integralGain:            cfg.integralGain,
-		derivativeGain:          cfg.derivativeGain,
-		outputLimit:             cfg.outputLimit,
-		integralLimit:           integralLimit,
-		trapezoidalIntegral:     cfg.trapezoidalIntegral,
-		antiWindupClamping:      cfg.antiWindupClamping,
-		lowPassFilterError:      cfg.lowPassFilterError,
-		lowPassFilterDerivative: cfg.lowPassFilterDerivative,
-		metrics:                 cfg.metrics,
+		proportionalGain:           cfg.proportionalGain,
+		integralGain:               cfg.integralGain,
+		derivativeGain:             cfg.derivativeGain,
+		outputLimit:                cfg.outputLimit,
+		integralLimit:              integralLimit,
+		setpointFilterTimeConstant: cfg.setpointFilterTimeConstant,
+		trapezoidalIntegral:        cfg.trapezoidalIntegral,
+		antiWindupClamping:         cfg.antiWindupClamping,
+		lowPassFilterError:         cfg.lowPassFilterError,
+		lowPassFilterDerivative:    cfg.lowPassFilterDerivative,
+		metrics:                    cfg.metrics,
 	}
 	controller.updateGainMetrics()
 
@@ -86,6 +91,7 @@ func New(opts ...Option) (*Controller, error) {
 // current measurement over the provided time step. Call Update once per
 // control loop iteration, passing the time elapsed since the previous call.
 func (c *Controller) Update(target, current float64, delta time.Duration) (controlSignal float64) {
+	target = c.applySetpointFilter(target, current, delta)
 	step := float64(delta.Seconds())
 
 	defer func() {
@@ -130,6 +136,20 @@ func (c *Controller) Update(target, current float64, delta time.Duration) (contr
 	// saturated.
 	output := pTerm + iTerm + dTerm
 	return c.outputLimit.apply(output)
+}
+
+func (c *Controller) applySetpointFilter(target, current float64, delta time.Duration) float64 {
+	if c.setpointFilterTimeConstant == 0.0 {
+		return target
+	}
+	if !c.filteredSetpointInitialized {
+		c.filteredSetpoint = current
+		c.filteredSetpointInitialized = true
+	}
+	step := float64(delta.Seconds())
+	blend := step / (c.setpointFilterTimeConstant + step)
+	c.filteredSetpoint += (target - c.filteredSetpoint) * blend
+	return c.filteredSetpoint
 }
 
 // updateIntegral adds up past errors in every step to eliminate residual bias that
@@ -194,15 +214,16 @@ func (c *Controller) termLabels(term string) prometheus.Labels {
 }
 
 type options struct {
-	proportionalGain        float64
-	integralGain            float64
-	derivativeGain          float64
-	outputLimit             limit
-	trapezoidalIntegral     bool
-	antiWindupClamping      bool
-	lowPassFilterError      float64
-	lowPassFilterDerivative float64
-	metrics                 *metrics
+	proportionalGain           float64
+	integralGain               float64
+	derivativeGain             float64
+	outputLimit                limit
+	trapezoidalIntegral        bool
+	antiWindupClamping         bool
+	lowPassFilterError         float64
+	lowPassFilterDerivative    float64
+	setpointFilterTimeConstant float64
+	metrics                    *metrics
 }
 
 // Option is a functional option for flexible and extensible configuration of
@@ -307,6 +328,16 @@ func WithAntiWindupClamping(enabled bool) Option {
 func WithTrapezoidalIntegral(enabled bool) Option {
 	return func(o *options) error {
 		o.trapezoidalIntegral = enabled
+		return nil
+	}
+}
+
+// WithSetpointFilter applies a first-order low-pass filter to setpoint
+// changes. A larger time constant produces a slower setpoint response and more
+// smoothing. A smaller time constant tracks target changes more quickly.
+func WithSetpointFilter(timeConstant float64) Option {
+	return func(o *options) error {
+		o.setpointFilterTimeConstant = timeConstant
 		return nil
 	}
 }

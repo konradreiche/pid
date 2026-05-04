@@ -17,7 +17,7 @@ func ExampleNew() {
 	}
 
 	fmt.Printf("%v\n", controller)
-	// Output: &{2 2 0.5 0 0 0 {-Inf +Inf} {-Inf +Inf} 0.00390625 0.03125 false false <nil>}
+	// Output: &{2 2 0.5 0 0 0 {-Inf +Inf} {-Inf +Inf} 0 0 false 0.00390625 0.03125 false false <nil>}
 }
 
 func ExampleController_Update() {
