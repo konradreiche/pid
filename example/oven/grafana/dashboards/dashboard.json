@@ -689,6 +689,7 @@
           ]
         },
         "definition": "label_values(pid_current,name)",
+        "includeAll": true,
         "label": "PID",
         "multi": true,
         "name": "name",
@@ -712,5 +713,5 @@
   "timezone": "browser",
   "title": "PID Controller - Oven Demo",
   "uid": "adp6sw7",
-  "version": 8
+  "version": 1
 }
