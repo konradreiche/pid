@@ -92,7 +92,6 @@ func New(opts ...Option) (*Controller, error) {
 // control loop iteration, passing the time elapsed since the previous call.
 func (c *Controller) Update(target, current float64, delta time.Duration) (controlSignal float64) {
 	target = c.applySetpointFilter(target, current, delta)
-	step := float64(delta.Seconds())
 
 	defer func() {
 		if c.metrics == nil {
@@ -106,6 +105,7 @@ func (c *Controller) Update(target, current float64, delta time.Duration) (contr
 	// value. This time-dependent error drives the PID terms (P, I, and D).
 	controlError := target - current
 	// Optionally apply a low-pass filter to reduce noise in the error signal.
+	step := float64(delta.Seconds())
 	if c.lowPassFilterError != 0.0 {
 		controlError = (controlError*step + c.prevControlError*c.lowPassFilterError) / (c.lowPassFilterError + step)
 	}
@@ -197,13 +197,13 @@ func (c *Controller) updateGainMetrics() {
 	c.metrics.gain.With(c.termLabels("derivative_gain")).Set(c.derivativeGain)
 }
 
-func (c *Controller) updateTermMetrics(p, i, d float64) {
+func (c *Controller) updateTermMetrics(proportional, integral, derivative float64) {
 	if c.metrics == nil {
 		return
 	}
-	c.metrics.term.With(c.termLabels("proportional")).Set(p)
-	c.metrics.term.With(c.termLabels("integral")).Set(i)
-	c.metrics.term.With(c.termLabels("derivative")).Set(d)
+	c.metrics.term.With(c.termLabels("proportional")).Set(proportional)
+	c.metrics.term.With(c.termLabels("integral")).Set(integral)
+	c.metrics.term.With(c.termLabels("derivative")).Set(derivative)
 }
 
 func (c *Controller) termLabels(term string) prometheus.Labels {

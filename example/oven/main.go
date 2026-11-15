@@ -134,24 +134,6 @@ func runPIDController(name string, opts ...pid.Option) {
 	go pidSimulation.run(pid)
 }
 
-func newSimulation(name string) *simulation {
-	oven := &oven{
-		currentTemperature:       ambientTemperature,
-		temperatureLossPerSecond: temperatureLossPerSecond,
-		targetTemperature:        targetTemperature,
-		maxHeatRate:              maxHeaterPower,
-	}
-	simulation := &simulation{
-		name:     name,
-		oven:     oven,
-		timeStep: 1 * time.Second,
-	}
-	if *csv {
-		simulation.csvFile = createCSV(name)
-	}
-	return simulation
-}
-
 type controller interface {
 	// Update returns the controller output, interpreted here as heater power and
 	// should return a result in the range of  [0, maxHeaterPower].
@@ -195,6 +177,24 @@ type simulation struct {
 	oven     *oven
 	timeStep time.Duration
 	csvFile  *os.File
+}
+
+func newSimulation(name string) *simulation {
+	oven := &oven{
+		currentTemperature:       ambientTemperature,
+		temperatureLossPerSecond: temperatureLossPerSecond,
+		targetTemperature:        targetTemperature,
+		maxHeatRate:              maxHeaterPower,
+	}
+	simulation := &simulation{
+		name:     name,
+		oven:     oven,
+		timeStep: 1 * time.Second,
+	}
+	if *csv {
+		simulation.csvFile = createCSV(name)
+	}
+	return simulation
 }
 
 func (s *simulation) run(controller controller) {
