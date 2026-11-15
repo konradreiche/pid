@@ -51,8 +51,8 @@ func TestMetrics_New(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got, want := findLabelValue(t, registry, "pid_gain", "term", tt.name), tt.want; got != want {
-				t.Errorf("got %v, want: %v", got, want)
+			if got := findLabelValue(t, registry, "pid_gain", "term", tt.name); got != tt.want {
+				t.Errorf("got %v, want: %v", got, tt.want)
 			}
 		})
 	}
@@ -144,8 +144,8 @@ func TestMetrics_Update(t *testing.T) {
 			if count == 0 {
 				t.Fatalf("expected metric %q to be registered", tt.name)
 			}
-			if got, want := tt.value(controller.metrics, registry), tt.want; got != want {
-				t.Errorf("got %v, want: %v", got, want)
+			if got := tt.value(controller.metrics, registry); got != tt.want {
+				t.Errorf("got %v, want: %v", got, tt.want)
 			}
 		})
 	}
@@ -153,17 +153,17 @@ func TestMetrics_Update(t *testing.T) {
 
 func TestReusePrometheusRegistry(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	a, err := New(WithPrometheusMetrics("a", registry))
+	first, err := New(WithPrometheusMetrics("a", registry))
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := New(WithPrometheusMetrics("b", registry))
+	second, err := New(WithPrometheusMetrics("b", registry))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	a.Update(7, 4, 1*time.Second)
-	b.Update(2, 3, 1*time.Second)
+	first.Update(7, 4, 1*time.Second)
+	second.Update(2, 3, 1*time.Second)
 
 	findLabelValue(t, registry, "pid_control_signal", "name", "a")
 	findLabelValue(t, registry, "pid_control_signal", "name", "b")

@@ -35,63 +35,63 @@ type metrics struct {
 }
 
 func newMetrics(name string, reg prometheus.Registerer) (*metrics, error) {
-	m := &metrics{
+	metrics := &metrics{
 		baseLabels: prometheus.Labels{
 			nameLabel: name,
 		},
 	}
 	var err error
-	m.updatesTotal, err = register(reg, prometheus.NewCounterVec(prometheus.CounterOpts{
+	metrics.updatesTotal, err = register(reg, prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "pid_updates_total",
 	}, baseLabels))
 	if err != nil {
 		return nil, err
 	}
-	m.target, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metrics.target, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pid_target",
 	}, baseLabels))
 	if err != nil {
 		return nil, err
 	}
-	m.current, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metrics.current, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pid_current",
 	}, baseLabels))
 	if err != nil {
 		return nil, err
 	}
-	m.controlSignal, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metrics.controlSignal, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pid_control_signal",
 	}, baseLabels))
 	if err != nil {
 		return nil, err
 	}
-	m.gain, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metrics.gain, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pid_gain",
 	}, termLabels))
 	if err != nil {
 		return nil, err
 	}
-	m.term, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metrics.term, err = register(reg, prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pid_term",
 	}, termLabels))
 	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return metrics, nil
 }
 
 func register[C prometheus.Collector](reg prometheus.Registerer, collector C) (C, error) {
-	var c C
+	var zero C
 	if err := reg.Register(collector); err != nil {
 		var are prometheus.AlreadyRegisteredError
 		if errors.As(err, &are) {
 			existing, ok := are.ExistingCollector.(C)
 			if !ok {
-				return c, fmt.Errorf("register: existing collector has type %T, want: %T", are.ExistingCollector, c)
+				return zero, fmt.Errorf("register: existing collector has type %T, want: %T", are.ExistingCollector, zero)
 			}
 			return existing, nil
 		}
-		return c, err
+		return zero, err
 	}
 	return collector, nil
 }
